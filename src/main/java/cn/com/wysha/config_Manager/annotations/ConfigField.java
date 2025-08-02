@@ -1,4 +1,4 @@
-package cn.com.wysha.config_Manager.config;
+package cn.com.wysha.config_Manager.annotations;
 
 import cn.com.wysha.config_Manager.converter.ConfigConverter;
 import cn.com.wysha.config_Manager.converter.DefaultConverter;

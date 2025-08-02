@@ -1,78 +1,91 @@
 package cn.com.wysha.config_Manager.manger.ini;
 
 import cn.com.wysha.config_Manager.manger.Manager;
+import org.dom4j.DocumentException;
+import org.dom4j.DocumentHelper;
+import org.dom4j.io.SAXReader;
 import org.ini4j.Ini;
+import org.ini4j.InvalidFileFormatException;
 import org.ini4j.Profile;
 
 import java.io.File;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
-/**
- * 自动读取和写入ini配置文件
- */
 public class IniManager extends Manager {
-    private final Map<String, Ini> iniMap = new HashMap<>();
 
     private Ini getIniFile(String path) {
-        return iniMap.computeIfAbsent(path, k ->{
-            try {
-                File file = new File(path);
-                if (!file.exists()) {
-                    File fileParent = file.getParentFile();
-                    if (fileParent!=null&&!fileParent.exists()) {
-                        fileParent.mkdirs();
-                    }
-                    file.createNewFile();
-                }
+        File file = new File(path);
+        try {
+            if (file.exists()) {
                 return new Ini(file);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
+            }else {
+                return new Ini();
             }
-        });
+        } catch (InvalidFileFormatException e) {
+            if (file.exists()){
+                file.delete();
+            }
+            return new Ini();
+        } catch (Exception e){
+            throw new RuntimeException(e);
+        }
     }
 
 
     @Override
-    protected void read(Object obj, String filePath, String sectionPath, FieldElement fieldElement) {
+    protected void read(Object obj, String filePath, Map<String, Set<FieldElement>> map) {
         try {
             Ini ini = getIniFile(filePath);
 
-            Profile.Section section = ini.get(sectionPath);
+            map.forEach((sectionPath, set) -> {
+                Profile.Section section = ini.get(sectionPath);
 
-            if (section != null){
-                String value = section.get(fieldElement.key());
+                if (section != null){
+                    set.forEach((fieldElement) -> {
+                        String value = section.get(fieldElement.key());
 
-                if (value != null){
-                    fieldElement.field().set(obj, fieldElement.converter().stringToObj(value));
+                        if (value != null){
+                            try {
+                                fieldElement.field().set(obj, fieldElement.converter().stringToObj(value));
+                            } catch (IllegalAccessException e) {
+                                throw new RuntimeException(e);
+                            }
+                        }
+                    });
                 }
-            }
+            });
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
 
     @Override
-    protected void write(Object obj, String filePath, String sectionPath, FieldElement fieldElement) {
+    protected void write(Object obj, String filePath, Map<String, Set<FieldElement>> map) {
         try {
             Ini ini = getIniFile(filePath);
 
-            Profile.Section section = ini.computeIfAbsent(sectionPath, o->ini.add(sectionPath));
+            map.forEach((sectionPath, set) -> {
+                Profile.Section section = ini.get(sectionPath);
+                if (section == null){
+                    section = ini.add(sectionPath);
+                }
 
-            Object value = fieldElement.field().get(obj);
+                Profile.Section finalSection = section;
+                set.forEach((fieldElement) -> {
+                    try {
+                        Object value = fieldElement.field().get(obj);
 
-            if (value != null){
-                section.put(fieldElement.key(), fieldElement.converter().objToString(value));
-            }
+                        finalSection.put(fieldElement.key(), fieldElement.converter().objToString(value));
+                    } catch (IllegalAccessException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+            });
 
-            ini.store();
+            ini.store(new File(filePath));
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-    }
-
-    @Override
-    protected void clear() {
-        iniMap.clear();
     }
 }

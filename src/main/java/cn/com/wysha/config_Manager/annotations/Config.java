@@ -1,4 +1,4 @@
-package cn.com.wysha.config_Manager.config;
+package cn.com.wysha.config_Manager.annotations;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
